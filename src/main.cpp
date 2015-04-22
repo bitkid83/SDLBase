@@ -32,9 +32,10 @@ struct Entity
 {
 	vec2 position;
 	vec2 velocity;
-	vec2 speed;
+	
 	int width;
 	int height;
+	
 	SDL_Rect playerRect;
 };
 
@@ -187,8 +188,6 @@ bool init()
 	//Initialize player
 	gPlayer.width = 32;
 	gPlayer.height = 32;
-	gPlayer.speed.x = 0;
-	gPlayer.speed.y = 0;
 	//gPlayer.position.x = (SCREEN_WIDTH / 2) - gPlayer.width;
 	//gPlayer.position.y = (SCREEN_HEIGHT / 2) - gPlayer.height;
 	gPlayer.position.x = gCamera.x + ((SCREEN_WIDTH / 2) - gPlayer.width);
@@ -203,8 +202,6 @@ bool init()
 	//Initialize Projectile
 	gProjectile.width = 10;
 	gProjectile.height = 10;
-	gProjectile.speed.x = 0;
-	gProjectile.speed.y = 0;
 	gProjectile.position.x = 0;
 	gProjectile.position.y = 0;
 	gProjectile.velocity.x = 0;
