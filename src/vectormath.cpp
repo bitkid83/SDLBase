@@ -17,7 +17,7 @@ vec2 Vec2ScalarDivide(vec2 A, double scalar)
 }
 
 vec2 Vec2Normalize(vec2 A)
-{	
+{
 	double length = 1.0f / Vec2Length(A);
 	A.x *= length;
 	A.y *= length;

@@ -1,18 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <SDL2/SDL.h>
+#include "SDL.h"
 
 #include "main.h"
 #include "vectormath.h"
 
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
 
 #define MAX_VEL 10
 
-#define TILE_WIDTH  64
-#define TILE_HEIGHT 60
+#define TILE_WIDTH  80
+#define TILE_HEIGHT 90
 #define WORLD_WIDTH 128
 #define WORLD_HEIGHT 128
 #define MAX_TILES (WORLD_WIDTH * WORLD_HEIGHT)
@@ -56,13 +56,14 @@ int gMouseX, gMouseY;
 Entity gPlayer;
 Entity gProjectile;
 
+vec2 gCamera;
+
 void GenTiles()
 {
 	worldmap = (unsigned char*)malloc(MAX_TILES);
 
 	for (int i = 0; i < MAX_TILES; i++) {
 		worldmap[i] = rand() % 3;
-		
 		//printf("Tile #%d = %d\n", i, worldmap[i]);
 	}
 }
@@ -71,41 +72,42 @@ SDL_Rect TileIndex(int x, int y)
 {
 	int index;
 	SDL_Rect temp;
+	
 	temp.w = TILE_WIDTH;
 	temp.h = TILE_HEIGHT;
 
-	index = x + y * WORLD_WIDTH;
+	index = x + (y * 128);
+
+	//Tile Types (0, 1, 2)
 	if (worldmap[index] == 0) {
-		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+		SDL_SetRenderDrawColor(gRenderer, 0x0F, 0x3B, 0x58, 0xFF);
 	}
 	else if (worldmap[index] == 1) {
-		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+		SDL_SetRenderDrawColor(gRenderer, 0x00, 0x92, 0xBF, 0xFF);
 	}
 	else if (worldmap[index] == 2) {
-		SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0xFF, 0xFF);
+		SDL_SetRenderDrawColor(gRenderer, 0x1F, 0x0B, 0x36, 0xFF);
 	}
-	temp.x = x * TILE_WIDTH;
-	temp.y = y * TILE_HEIGHT;
+	
+	temp.x = x * TILE_WIDTH - gCamera.x;
+	temp.y = y * TILE_HEIGHT - gCamera.y;
 
 	return temp;
 }
 
 void RenderTiles()
 {
-    SDL_Rect *temprect;
-    temprect = (SDL_Rect*)malloc(sizeof(SDL_Rect));
+	SDL_Rect *temprect;
+	temprect = (SDL_Rect*)malloc(sizeof(SDL_Rect));
 
-    for (int y = 0; y < SCREEN_HEIGHT / TILE_HEIGHT; y++) {
-		for (int x = 0; x < SCREEN_WIDTH / TILE_WIDTH; x++) {
-            *temprect = TileIndex(x - (int)gPlayer.position.x / TILE_WIDTH, y - (int)gPlayer.position.y / TILE_HEIGHT);
-            SDL_RenderFillRect(gRenderer, temprect);
-            //SDL_RenderFillRect(gRenderer, &TileIndex(x - (int)gPlayer.position.x / TILE_WIDTH, y - (int)gPlayer.position.y / TILE_HEIGHT ));
-			//SDL_RenderFillRect(gRenderer, &TileIndex(x & ((int)gPlayer.position.x / TILE_WIDTH) - 1, y & ((int)gPlayer.position.y / TILE_HEIGHT) - 1));
-			//SDL_RenderFillRect(gRenderer, &TileIndex(x, y));			
+	for (int y = 0; y < WORLD_WIDTH; y++) {
+		for (int x = 0; x < WORLD_HEIGHT; x++) {			
+			*temprect = TileIndex(x, y);
+			SDL_RenderFillRect(gRenderer, temprect);
 		}
 	}
-    
-    free(temprect);
+
+	free(temprect);
 }
 
 void HandlePlayerInput()
@@ -113,28 +115,31 @@ void HandlePlayerInput()
 	//SDL_PumpEvents();
 	if (gKeyState[SDL_SCANCODE_W]) {
 		gPlayer.velocity.y += -1;
+		gCamera.y += -5;
 	}
 	if (gKeyState[SDL_SCANCODE_S]) {
 		gPlayer.velocity.y += 1;
+		gCamera.y += 5;
 	}
 	if (gKeyState[SDL_SCANCODE_A]) {
 		gPlayer.velocity.x += -1;
+		gCamera.x += -5;
 	}
 	if (gKeyState[SDL_SCANCODE_D]) {
 		gPlayer.velocity.x += 1;
+		gCamera.x += 5;
 	}
 
-	//Add velocities to player position
-	gPlayer.position.x += (gPlayer.velocity.x * gFrameTime);
-	gPlayer.position.y += (gPlayer.velocity.y * gFrameTime);
-
+	//Add velocities to player position	
+	gPlayer.position.x += gPlayer.velocity.x * gFrameTime;
+	gPlayer.position.y += gPlayer.velocity.y * gFrameTime;
 	gPlayer.velocity.x *= 0.05;
 	gPlayer.velocity.y *= 0.05;
 
 	//if (fabs(gPlayer.velocity.x) < 0.00001) gPlayer.velocity.x = 0;
 	//if (fabs(gPlayer.velocity.y) < 0.00001) gPlayer.velocity.y = 0;
 
-	//printf("(X, Y): %f, %f\n", gPlayer.velocity.x, gPlayer.velocity.y);
+	printf("(X, Y): %f, %f\n", gPlayer.position.x, gPlayer.position.y);
 }
 
 bool init()
@@ -151,12 +156,12 @@ bool init()
 	}
 	//Create SDL window
 	else {
-		gWindow = SDL_CreateWindow(	"SDL Base", 
-									 SDL_WINDOWPOS_CENTERED, 
-									 SDL_WINDOWPOS_CENTERED, 
-									 SCREEN_WIDTH, 
-									 SCREEN_HEIGHT, 
-									 SDL_WINDOW_SHOWN);
+		gWindow = SDL_CreateWindow("SDL Base",
+			SDL_WINDOWPOS_CENTERED,
+			SDL_WINDOWPOS_CENTERED,
+			SCREEN_WIDTH,
+			SCREEN_HEIGHT,
+			SDL_WINDOW_SHOWN);
 
 		if (gWindow == NULL) {
 			printf("Error creating SDL Window: %s\n", SDL_GetError());
@@ -175,35 +180,39 @@ bool init()
 		success = true;
 	}
 
+	//Init Camera
+	gCamera.x = 0;
+	gCamera.y = 0;
+
 	//Initialize player
-	gPlayer.width = 16;
-	gPlayer.height = 16;
+	gPlayer.width = 32;
+	gPlayer.height = 32;
 	gPlayer.speed.x = 0;
 	gPlayer.speed.y = 0;
-	gPlayer.position.x = (SCREEN_WIDTH / 2) - gPlayer.width;
-	gPlayer.position.y = (SCREEN_HEIGHT / 2) - gPlayer.height;
-	//gPlayer.position.x = 0;
-	//gPlayer.position.y = 0;
+	//gPlayer.position.x = (SCREEN_WIDTH / 2) - gPlayer.width;
+	//gPlayer.position.y = (SCREEN_HEIGHT / 2) - gPlayer.height;
+	gPlayer.position.x = gCamera.x + ((SCREEN_WIDTH / 2) - gPlayer.width);
+	gPlayer.position.y = gCamera.y + ((SCREEN_HEIGHT / 2) - gPlayer.height);
 	gPlayer.velocity.x = 0;
 	gPlayer.velocity.y = 0;
-	gPlayer.playerRect = { (int)gPlayer.position.x, 
-						   (int)gPlayer.position.y, 
-								gPlayer.width, 
-	  						    gPlayer.height };
+	gPlayer.playerRect = {	(int)gPlayer.position.x,
+							(int)gPlayer.position.y,
+							gPlayer.width,
+							gPlayer.height };
 
 	//Initialize Projectile
-	gProjectile.width = 5;
-	gProjectile.height = 5;
+	gProjectile.width = 10;
+	gProjectile.height = 10;
 	gProjectile.speed.x = 0;
 	gProjectile.speed.y = 0;
 	gProjectile.position.x = 0;
 	gProjectile.position.y = 0;
 	gProjectile.velocity.x = 0;
 	gProjectile.velocity.y = 0;
-	gProjectile.playerRect = {  (int)gProjectile.position.x, 
-								(int)gProjectile.position.y, 
-									gProjectile.width, 
-									gProjectile.height };
+	gProjectile.playerRect = {	(int)gProjectile.position.x,
+								(int)gProjectile.position.y,
+								gProjectile.width,
+								gProjectile.height };
 
 	//Set up SDL Game Controllers	
 	gNumGamepads = SDL_NumJoysticks();
@@ -234,44 +243,44 @@ void refresh()
 	SDL_Texture *tmptex;
 	tmptex = (SDL_Texture*)malloc(sizeof(tmptex));
 
-	SDL_Event evt;	
+	SDL_Event evt;
 	vec2 mouse_relative_to_player = { 0, 0 };
 
 	//Game loop
-	while (!done) {		
+	while (!done) {
 		//SDL Event loop
 
 		//SDL_PumpEvents(); //not needed, SDL_PollEvent already pumps events
-		
+
 		// ++ FRAME START ++
 		gLastTime = SDL_GetTicks() - gStartTime;
-		
+
 		while (SDL_PollEvent(&evt)) {
 			switch (evt.type) {
-				case SDL_QUIT:
-					done = true;
-					break;
-				case SDL_MOUSEBUTTONDOWN:
-					gProjectile.position.x = gPlayer.position.x;
-					gProjectile.position.y = gPlayer.position.y;
+			case SDL_QUIT:
+				done = true;
+				break;
+			case SDL_MOUSEBUTTONDOWN:
+				gProjectile.position.x = gPlayer.position.x;
+				gProjectile.position.y = gPlayer.position.y;
 
-					//Left Mouse Button
-					if (evt.button.button == SDL_BUTTON_LEFT) {	
-						mouse_relative_to_player = { evt.button.x - gPlayer.position.x, evt.button.y - gPlayer.position.y };
-						mouse_relative_to_player = Vec2Normalize(mouse_relative_to_player);
-						//printf("%f %f\n", mouse_relative_to_player.x, mouse_relative_to_player.y);
-					}
-					//Right Mouse Button
-					else if (evt.button.button == SDL_BUTTON_RIGHT) {
-					}
-					break;
-				case SDL_KEYUP:
-					if (evt.key.keysym.sym == SDLK_ESCAPE) {
-						done = true;
-					}
-					break;
-					
-			}			
+				//Left Mouse Button
+				if (evt.button.button == SDL_BUTTON_LEFT) {
+					mouse_relative_to_player = { evt.button.x - gPlayer.position.x, evt.button.y - gPlayer.position.y };
+					mouse_relative_to_player = Vec2Normalize(mouse_relative_to_player);
+					//printf("%f %f\n", mouse_relative_to_player.x, mouse_relative_to_player.y);
+				}
+				//Right Mouse Button
+				else if (evt.button.button == SDL_BUTTON_RIGHT) {
+				}
+				break;
+			case SDL_KEYUP:
+				if (evt.key.keysym.sym == SDLK_ESCAPE) {
+					done = true;
+				}
+				break;
+
+			}
 		}
 
 		//Clear the screen to black
@@ -282,14 +291,14 @@ void refresh()
 
 		//Render the player (red square)
 		HandlePlayerInput();
-		
+
 		//Constrain player to the screen boundaries
 		//if (gPlayer.position.x > SCREEN_WIDTH - gPlayer.width) { gPlayer.position.x = (SCREEN_WIDTH - gPlayer.width) - 1; }
 		//if (gPlayer.position.x < 0) { gPlayer.position.x = 0; }
 		//if (gPlayer.position.y > SCREEN_HEIGHT - gPlayer.height) { gPlayer.position.y = (SCREEN_HEIGHT - gPlayer.height) - 1; }
 		//if (gPlayer.position.y < 0) { gPlayer.position.y = 0; }
 
-		gPlayer.playerRect = { (int)gPlayer.position.x, (int)gPlayer.position.y, gPlayer.width, gPlayer.height };		
+		gPlayer.playerRect = { (int)gPlayer.position.x, (int)gPlayer.position.y, gPlayer.width, gPlayer.height };
 		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
 		SDL_RenderFillRect(gRenderer, &gPlayer.playerRect);
 
@@ -304,12 +313,12 @@ void refresh()
 		SDL_RenderDrawLine(gRenderer, gPlayer.position.x + (gPlayer.width / 2), gPlayer.position.y + (gPlayer.height / 2), gMouseX, gMouseY);
 
 		//Projectile
-		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-		gProjectile.position.x += (mouse_relative_to_player.x * gFrameTime);
-		gProjectile.position.y += (mouse_relative_to_player.y * gFrameTime);
+		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xAA, 0x00, 0xFF);
+		gProjectile.position.x += (mouse_relative_to_player.x) * 10;// *gFrameTime);
+		gProjectile.position.y += (mouse_relative_to_player.y) * 10;// *gFrameTime);
 		gProjectile.playerRect = { (int)gProjectile.position.x, (int)gProjectile.position.y, gProjectile.width, gProjectile.height };
 		SDL_RenderFillRect(gRenderer, &gProjectile.playerRect);
-		
+
 		//Draw everything on the screen
 		SDL_RenderPresent(gRenderer);
 
@@ -321,22 +330,22 @@ void refresh()
 void shutdown()
 {
 	SDL_DestroyRenderer(gRenderer);
-	SDL_DestroyWindow(gWindow);	
+	SDL_DestroyWindow(gWindow);
 	gRenderer = NULL;
 	gWindow = NULL;
-	
+
 	SDL_Quit();
 }
 
 int main(int argc, char *argv[])
-{	
+{
 	if (!init())
 	{
 		printf("Error launching game!\n");
 		return 0;
 	}
 	else
-	{	
+	{
 		refresh();
 	}
 
