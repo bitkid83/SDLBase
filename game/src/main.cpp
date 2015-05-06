@@ -1,48 +1,40 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+
 #include "SDL.h"
-
 #include "main.h"
-#include "vectormath.h"
+#include "entity.h"
 
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
 
 #define MAX_VEL 10
 
-#define TILE_WIDTH  80
-#define TILE_HEIGHT 90
-#define WORLD_WIDTH 128
-#define WORLD_HEIGHT 128
+#define TILE_WIDTH  64
+#define TILE_HEIGHT 64
+#define WORLD_WIDTH 64
+#define WORLD_HEIGHT 64
 #define MAX_TILES (WORLD_WIDTH * WORLD_HEIGHT)
 
+#define MAX_ENTITIES 1024
+
 unsigned char *worldmap;
+
+//Entity dictionary
+Entity *edict;
+int lastent = 0;
 
 bool done = false; //quit when done is true
 
 SDL_Window *gWindow;
 SDL_Renderer *gRenderer;
 
-// TODO: 
-// 1) Entities need their own source files
-// 2) Create a doubly-linked list of Entities for #3?
-// 3) Entities should be able to communicate to/from one another.
-struct Entity
-{
-	vec2 position;
-	vec2 velocity;
-	
-	int width;
-	int height;
-	
-	SDL_Rect playerRect;
-};
-
 //Frame timing stuff
-int gStartTime = 0;
-int gLastTime = 0;
-double gFrameTime = 0.0;
+const float maxfps = 60;
+const float dt = 1 / maxfps;
+float accumulator = 0;
 
 //Keyboard stuff
 unsigned char *gKeyState;
@@ -54,7 +46,6 @@ int gNumGamepads = 0;
 int gMouseX, gMouseY;
 
 //Global entities
-Entity gPlayer;
 Entity gProjectile;
 
 vec2 gCamera;
@@ -77,7 +68,7 @@ SDL_Rect TileIndex(int x, int y)
 	temp.w = TILE_WIDTH;
 	temp.h = TILE_HEIGHT;
 
-	index = x + (y * 128);
+	index = x + (y * TILE_WIDTH);
 
 	//Tile Types (0, 1, 2)
 	if (worldmap[index] == 0) {
@@ -96,14 +87,14 @@ SDL_Rect TileIndex(int x, int y)
 	return temp;
 }
 
-void RenderTiles()
+void UpdateTiles()
 {
 	SDL_Rect *temprect;
 	temprect = (SDL_Rect*)malloc(sizeof(SDL_Rect));
 
 	for (int y = 0; y < WORLD_WIDTH; y++) {
 		for (int x = 0; x < WORLD_HEIGHT; x++) {			
-			*temprect = TileIndex(x, y);
+			*temprect = TileIndex(x, y);		
 			SDL_RenderFillRect(gRenderer, temprect);
 		}
 	}
@@ -111,36 +102,36 @@ void RenderTiles()
 	free(temprect);
 }
 
-void HandlePlayerInput()
+void HandlePlayerInput(float gFrameTime)
 {
 	//SDL_PumpEvents();
 	if (gKeyState[SDL_SCANCODE_W]) {
-		gPlayer.velocity.y += -1;
+		edict[0].velocity.y += -1;
 		gCamera.y += -5;
 	}
 	if (gKeyState[SDL_SCANCODE_S]) {
-		gPlayer.velocity.y += 1;
+		edict[0].velocity.y += 1;
 		gCamera.y += 5;
 	}
 	if (gKeyState[SDL_SCANCODE_A]) {
-		gPlayer.velocity.x += -1;
+		edict[0].velocity.x += -1;
 		gCamera.x += -5;
 	}
 	if (gKeyState[SDL_SCANCODE_D]) {
-		gPlayer.velocity.x += 1;
+		edict[0].velocity.x += 1;
 		gCamera.x += 5;
 	}
 
 	//Add velocities to player position	
-	gPlayer.position.x += gPlayer.velocity.x * gFrameTime;
-	gPlayer.position.y += gPlayer.velocity.y * gFrameTime;
-	gPlayer.velocity.x *= 0.05;
-	gPlayer.velocity.y *= 0.05;
+	edict[0].position.x += edict[0].velocity.x * gFrameTime;
+	edict[0].position.y += edict[0].velocity.y * gFrameTime;
+	edict[0].velocity.x *= 0.05;
+	edict[0].velocity.y *= 0.05;
 
-	//if (fabs(gPlayer.velocity.x) < 0.00001) gPlayer.velocity.x = 0;
-	//if (fabs(gPlayer.velocity.y) < 0.00001) gPlayer.velocity.y = 0;
+	//if (fabs(edict[0].velocity.x) < 0.00001) edict[0].velocity.x = 0;
+	//if (fabs(edict[0].velocity.y) < 0.00001) edict[0].velocity.y = 0;
 
-	printf("(X, Y): %f, %f\n", gPlayer.position.x, gPlayer.position.y);
+	//printf("(X, Y): %f, %f\n", edict[0].position.x, edict[0].position.y);
 }
 
 bool init()
@@ -185,31 +176,24 @@ bool init()
 	gCamera.x = 0;
 	gCamera.y = 0;
 
-	//Initialize player
-	gPlayer.width = 32;
-	gPlayer.height = 32;
-	//gPlayer.position.x = (SCREEN_WIDTH / 2) - gPlayer.width;
-	//gPlayer.position.y = (SCREEN_HEIGHT / 2) - gPlayer.height;
-	gPlayer.position.x = gCamera.x + ((SCREEN_WIDTH / 2) - gPlayer.width);
-	gPlayer.position.y = gCamera.y + ((SCREEN_HEIGHT / 2) - gPlayer.height);
-	gPlayer.velocity.x = 0;
-	gPlayer.velocity.y = 0;
-	gPlayer.playerRect = {	(int)gPlayer.position.x,
-							(int)gPlayer.position.y,
-							gPlayer.width,
-							gPlayer.height };
+	//Allocate memory for all possible entities
+	edict = (Entity *)malloc(sizeof(Entity) * MAX_ENTITIES);
+	memset(edict, 0, sizeof(Entity) * MAX_ENTITIES);
 
-	//Initialize Projectile
-	gProjectile.width = 10;
-	gProjectile.height = 10;
-	gProjectile.position.x = 0;
-	gProjectile.position.y = 0;
-	gProjectile.velocity.x = 0;
-	gProjectile.velocity.y = 0;
-	gProjectile.playerRect = {	(int)gProjectile.position.x,
-								(int)gProjectile.position.y,
-								gProjectile.width,
-								gProjectile.height };
+	//Initialize player
+	edict[0].BindEntity(&edict[0], 0);
+	edict[0].width = 32;
+	edict[0].height = 32;
+	edict[0].position.x = gCamera.x + ((SCREEN_WIDTH / 2) - edict[0].width);
+	edict[0].position.y = gCamera.y + ((SCREEN_HEIGHT / 2) - edict[0].height);
+	edict[0].velocity.x = 0;
+	edict[0].velocity.y = 0;
+	edict[0].playerRect = { (int)edict[0].position.x,
+							(int)edict[0].position.y,
+							edict[0].width,
+							edict[0].height };
+	lastent++;
+
 
 	//Set up SDL Game Controllers	
 	gNumGamepads = SDL_NumJoysticks();
@@ -226,12 +210,10 @@ bool init()
 	//Disable mouse cursor
 	SDL_ShowCursor(SDL_DISABLE);
 
-	//Get initial ticks for frame timer
-	gStartTime = SDL_GetTicks();
-
 	SDL_RenderClear(gRenderer);
 
 	GenTiles();
+
 	return success;
 }
 
@@ -243,32 +225,54 @@ void refresh()
 	SDL_Event evt;
 	vec2 mouse_relative_to_player = { 0, 0 };
 
+	float frameStart = SDL_GetTicks();
+
 	//Game loop
 	while (!done) {
-		//SDL Event loop
+		const float currentTime = SDL_GetTicks();
+		//store time elapsed since the last frame began
+		accumulator += currentTime - frameStart;
+		//record the starting of this frame
+		frameStart = currentTime;
 
+		if (accumulator > 0.2f) {
+			accumulator = 0.2f;
+		}
 		//SDL_PumpEvents(); //not needed, SDL_PollEvent already pumps events
-
-		// ++ FRAME START ++
-		gLastTime = SDL_GetTicks() - gStartTime;
-
+			
+		//SDL Event loop
 		while (SDL_PollEvent(&evt)) {
 			switch (evt.type) {
 			case SDL_QUIT:
 				done = true;
 				break;
 			case SDL_MOUSEBUTTONDOWN:
-				gProjectile.position.x = gPlayer.position.x;
-				gProjectile.position.y = gPlayer.position.y;
+
 
 				//Left Mouse Button
-				if (evt.button.button == SDL_BUTTON_LEFT) {
-					mouse_relative_to_player = { evt.button.x - gPlayer.position.x, evt.button.y - gPlayer.position.y };
+				if (evt.button.button == SDL_BUTTON_LEFT) {					
+					mouse_relative_to_player = { evt.button.x - edict[0].position.x, evt.button.y - edict[0].position.y };
 					mouse_relative_to_player = Vec2Normalize(mouse_relative_to_player);
+
+					//Initialize Projectile
+					edict[lastent].width = 10;
+					edict[lastent].height = 10;
+					edict[lastent].position.x = edict[0].position.x;
+					edict[lastent].position.y = edict[0].position.y;
+					edict[lastent].velocity.x = mouse_relative_to_player.x;
+					edict[lastent].velocity.y = mouse_relative_to_player.y;
+					edict[lastent].playerRect = { (int)edict[lastent].position.x,
+						(int)edict[lastent].position.y,
+						edict[lastent].width,
+						edict[lastent].height };
+
+					SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xAA, 0x00, 0xFF);
+					edict[lastent].BindEntity(&edict[lastent], 25);					
 					//printf("%f %f\n", mouse_relative_to_player.x, mouse_relative_to_player.y);
 				}
 				//Right Mouse Button
 				else if (evt.button.button == SDL_BUTTON_RIGHT) {
+					//nothing here yet!
 				}
 				break;
 			case SDL_KEYUP:
@@ -280,47 +284,63 @@ void refresh()
 			}
 		}
 
-		//Clear the screen to black
-		SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
-		SDL_RenderClear(gRenderer);
+		while (accumulator > dt) {
+			accumulator -= dt;
 
-		RenderTiles();
+			//Clear the screen to black
+			SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
+			SDL_RenderClear(gRenderer);
+		
+			//Render the tilemap
+			UpdateTiles();
 
-		//Render the player (red square)
-		HandlePlayerInput();
+			//Mouse crosshair
+			SDL_GetMouseState(&gMouseX, &gMouseY);
+			SDL_SetRenderDrawColor(gRenderer, 0x00, 0xAA, 0xCA, 0xFF);
+			SDL_RenderDrawLine(gRenderer, gMouseX - 5, gMouseY, gMouseX + 5, gMouseY);
+			SDL_RenderDrawLine(gRenderer, gMouseX, gMouseY - 5, gMouseX, gMouseY + 5);
 
-		//Constrain player to the screen boundaries
-		//if (gPlayer.position.x > SCREEN_WIDTH - gPlayer.width) { gPlayer.position.x = (SCREEN_WIDTH - gPlayer.width) - 1; }
-		//if (gPlayer.position.x < 0) { gPlayer.position.x = 0; }
-		//if (gPlayer.position.y > SCREEN_HEIGHT - gPlayer.height) { gPlayer.position.y = (SCREEN_HEIGHT - gPlayer.height) - 1; }
-		//if (gPlayer.position.y < 0) { gPlayer.position.y = 0; }
+			//Aiming laser
+			SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+			SDL_RenderDrawLine(gRenderer, edict[0].position.x + (edict[0].width / 2), edict[0].position.y + (edict[0].height / 2), gMouseX, gMouseY);
 
-		gPlayer.playerRect = { (int)gPlayer.position.x, (int)gPlayer.position.y, gPlayer.width, gPlayer.height };
-		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-		SDL_RenderFillRect(gRenderer, &gPlayer.playerRect);
+			//Entity updates
+			HandlePlayerInput(dt);
+			
+			//Player - entity 0
+			edict[0].playerRect = { (int)edict[0].position.x, (int)edict[0].position.y, edict[0].width, edict[0].height };
+			SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+			SDL_RenderFillRect(gRenderer, &edict[0].playerRect);
+			
+			//Loop from the first entity slot, til the last bound entity
+			for (int idx = 1; idx <= lastent; idx++) {
+				switch (edict[idx].GetId()) {
+				//Bullet - entity 25
+				case 25:
+					edict[idx].position.x += (edict[idx].velocity.x) * 10;// *gFrameTime);
+					edict[idx].position.y += (edict[idx].velocity.y) * 10;// *gFrameTime);
+					edict[idx].playerRect = { (int)edict[idx].position.x, (int)edict[idx].position.y, edict[idx].width, edict[idx].height };
+					SDL_RenderFillRect(gRenderer, &edict[idx].playerRect);
+					break;
+				}
+			}
 
-		//Mouse crosshair
-		SDL_GetMouseState(&gMouseX, &gMouseY);
-		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xAA, 0xCA, 0xFF);
-		SDL_RenderDrawLine(gRenderer, gMouseX - 5, gMouseY, gMouseX + 5, gMouseY);
-		SDL_RenderDrawLine(gRenderer, gMouseX, gMouseY - 5, gMouseX, gMouseY + 5);
-
-		//Aiming laser
-		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
-		SDL_RenderDrawLine(gRenderer, gPlayer.position.x + (gPlayer.width / 2), gPlayer.position.y + (gPlayer.height / 2), gMouseX, gMouseY);
-
-		//Projectile
-		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xAA, 0x00, 0xFF);
-		gProjectile.position.x += (mouse_relative_to_player.x) * 10;// *gFrameTime);
-		gProjectile.position.y += (mouse_relative_to_player.y) * 10;// *gFrameTime);
-		gProjectile.playerRect = { (int)gProjectile.position.x, (int)gProjectile.position.y, gProjectile.width, gProjectile.height };
-		SDL_RenderFillRect(gRenderer, &gProjectile.playerRect);
-
-		//Draw everything on the screen
-		SDL_RenderPresent(gRenderer);
-
+			////If Entity is bound, increment the array count
+			if (lastent == MAX_ENTITIES) {
+				lastent = 1;
+			}
+			else {
+				while (edict[lastent].is_bound == true) {
+					lastent++;
+				}
+			}			
+			
+			SDL_RenderPresent(gRenderer);
+			
+		}
+		
 		// ++ FRAME END ++
-		gFrameTime = (SDL_GetTicks() - gLastTime) / 1000.f;
+		//gFrameTime = (SDL_GetTicks() - gLastTime) / 1000.f;		
 	}
 }
 
@@ -330,6 +350,9 @@ void shutdown()
 	SDL_DestroyWindow(gWindow);
 	gRenderer = NULL;
 	gWindow = NULL;
+	
+	free((void *)edict);
+	edict = NULL;
 
 	SDL_Quit();
 }
