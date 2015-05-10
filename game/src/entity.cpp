@@ -11,24 +11,40 @@ Entity::~Entity()
 
 };
 
-void Entity::SetId(int Id)
+void Entity::SetType(EntityType t)
 {
-	this->entity_id = Id;
+	this->eType = t;
 };
 
-int Entity::GetId()
+EntityType Entity::GetType()
 {
-	return this->entity_id;
+	return this->eType;
 }
 
-void Entity::BindEntity(Entity *e, int Id)
+void Entity::BindEntity(Entity *e, EntityType t)
 {
 	if (!e->is_bound) {
-		e->SetId(Id);
+		e->SetType(t);
 		e->is_bound = true;
 	}
 	else {
-		printf("Error: entity already bound with Id: %d\n", e->GetId());
+		char *typestr = "";
+		switch (e->GetType())
+		{
+			case PLAYER:
+				typestr = "PLAYER";
+				break;
+			case BULLET:
+				typestr = "BULLET";
+				break;
+			case ENEMY:
+				typestr = "ENEMY";
+				break;
+			case NONE:
+				typestr = "NONE";
+				break;
+		}
+		printf("Error: entity already bound to type: %s\n", typestr);
 		return;
 	}
 };
@@ -37,7 +53,7 @@ void Entity::UnbindEntity(Entity *e)
 {
 	if (e != NULL) {
 		if (e->is_bound == true) {
-			e->SetId(999);
+			e->SetType(NONE);
 			e->is_bound = false;
 		}
 		else {
@@ -49,4 +65,30 @@ void Entity::UnbindEntity(Entity *e)
 		printf("Error: entity is null!\n");
 		return;
 	}
+};
+
+void Entity::Update(double px, double py, double vx, double vy, int w, int h)
+{
+	if (w != 0 && h != 0) {
+		this->width = w;
+		this->height = h;
+	}
+
+	this->position.x = px;
+	this->position.y = py;
+
+	this->velocity.x = vx;
+	this->velocity.y = vy;
+	
+	this->player_rect.w = this->width;
+	this->player_rect.h = this->height;
+
+	this->player_rect.x = (int)this->position.x;
+	this->player_rect.y = (int)this->position.y;
+
+};
+
+void Entity::Render()
+{
+
 };

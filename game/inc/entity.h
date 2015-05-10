@@ -1,8 +1,16 @@
 #ifndef _H_ENTITY
 #define _H_ENTITY
 
+#include <iostream>
 #include "SDL.h"
 #include "vectormath.h"
+
+enum EntityType {
+	PLAYER = 0,
+	BULLET = 1,
+	ENEMY = 2,
+	NONE = 999
+};
 
 class Entity
 {
@@ -11,29 +19,27 @@ public:
 	Entity();
 	~Entity();
 
-	vec2 position;
-	vec2 velocity;
-
-	int width;		
+	int width;
 	int height;
 
-	SDL_Rect playerRect;
+	vec2 position;
+	vec2 velocity;
+	
+	SDL_Rect player_rect;
 		
-	int GetId();
+	EntityType GetType();
+	void SetType(EntityType t);
 
-	void BindEntity(Entity *e, int Id);
+	void BindEntity(Entity *e, EntityType t);
 	void UnbindEntity(Entity *e);
+
+	void Update(double px, double py, double vx, double vy, int w, int h);
+	void Render();
 
 	bool is_bound;
 
-private:	
-	// Entity Id Table:
-	// Player = 0
-	// Bullet = 25
-	// Nothing = 999
-	int entity_id;	
-
-	void SetId(int Id);
+private:
+	EntityType eType;	
 };
 
 #endif

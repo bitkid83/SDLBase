@@ -1,6 +1,7 @@
 #ifndef _H_VECTORMATH
 #define _H_VECTORMATH
 
+// todo: class vec2 and create member functions
 struct vec2
 {
 	double x, y;
