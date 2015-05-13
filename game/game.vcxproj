@@ -135,10 +135,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\entity.h" />
     <ClInclude Include="inc\main.h" />
     <ClInclude Include="inc\vectormath.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\entity.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\vectormath.cpp" />
   </ItemGroup>
