@@ -12,7 +12,7 @@
 #define WORLD_HEIGHT 64
 #define MAX_TILES (WORLD_WIDTH * WORLD_HEIGHT)
 
-#define MAX_ENTITIES 1024
+#define MAX_ENTITIES 65536
 
 unsigned char *worldmap;
 

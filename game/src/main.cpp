@@ -7,6 +7,7 @@
 #include "SDL_image.h"
 #include "main.h"
 #include "entity.h"
+#include "timer.h"
 
 
 // Entity dictionary
@@ -23,10 +24,37 @@ vec2 gCamera;
 void GenTiles()
 {
 	worldmap = (unsigned char*)malloc(MAX_TILES);
-
+	
 	for (int i = 0; i < MAX_TILES; i++) {
 		worldmap[i] = rand() % 3;
-		//printf("Tile #%d = %d\n", i, worldmap[i]);
+	}
+
+	int tmp = 0;
+
+	for (int gen = 0; gen < MAX_TILES; gen++) {
+		if (worldmap[gen] == 1) {
+			for (int g = 0; g < 5; g++) {
+				srand(SDL_GetTicks());
+				tmp = SDL_GetTicks();
+				worldmap[gen + 3] = rand() % 3;
+			}
+		}
+	}
+}
+
+void NewGen()
+{
+	for (int i = 0; i < MAX_TILES; i++) {
+		worldmap[i] = rand() % 3;
+	}
+	
+	for (int gen = 0; gen < MAX_TILES; gen++) {
+		if (worldmap[gen] == 1) {
+			for (int g = 0; g < 50; g++) {
+				srand(SDL_GetTicks());
+				worldmap[gen] = rand() % 3;
+			}
+		}
 	}
 }
 
@@ -51,6 +79,7 @@ SDL_Rect TileIndex(int x, int y)
 		SDL_SetRenderDrawColor(gRenderer, 0x1F, 0x0B, 0x36, 0xFF);
 	}
 	
+	// todo: get tile position updating out of this function
 	temp.x = x * TILE_WIDTH - gCamera.x;
 	temp.y = y * TILE_HEIGHT - gCamera.y;
 
@@ -59,6 +88,7 @@ SDL_Rect TileIndex(int x, int y)
 
 void UpdateTiles()
 {
+	// todo: allocation all the memory for map's assets up front
 	SDL_Rect *temprect;
 	temprect = (SDL_Rect*)malloc(sizeof(SDL_Rect));
 
@@ -95,8 +125,8 @@ void HandlePlayerInput(float frametime)
 	// add velocities to player position
 	edict[0].position.x += edict[0].velocity.x * frametime;
 	edict[0].position.y += edict[0].velocity.y * frametime;
-	edict[0].velocity.x *= 0.05;
-	edict[0].velocity.y *= 0.05;
+	edict[0].velocity.x *= 0.005;
+	edict[0].velocity.y *= 0.005;
 
 	//if (fabs(edict[0].velocity.x) < 0.00001) edict[0].velocity.x = 0;
 	//if (fabs(edict[0].velocity.y) < 0.00001) edict[0].velocity.y = 0;
@@ -150,17 +180,22 @@ bool init()
 	edict = (Entity *)malloc(sizeof(Entity) * MAX_ENTITIES);
 	memset(edict, 0, sizeof(Entity) * MAX_ENTITIES);
 
+	for (int lst = 0; lst < MAX_ENTITIES; lst++) {
+		edict[lst].SetType(ENT_NONE);
+	}
+
 	last_entity = 0;
 
 	// initialize player	
-	edict[0].BindEntity(&edict[0], PLAYER);
+	edict[0].BindEntity(&edict[0], ENT_PLAYER, 0);
 	edict[0].Update(	gCamera.x + ((SCREEN_WIDTH / 2) - edict[0].width), 
 						gCamera.y + ((SCREEN_HEIGHT / 2) - edict[0].height), 
 						0, 0, 
 						32, 32	);
 
-	last_entity++;
 
+	last_entity++;
+	
 	// set up SDL Game Controllers
 	gNumGamepads = 0;
 	gNumGamepads = SDL_NumJoysticks();
@@ -193,6 +228,9 @@ void refresh()
 
 	float frameStart = SDL_GetTicks();
 
+	bool shooting = false;
+	int start = 0;
+	
 	// Game loop
 	while (!done) {
 		const float currentTime = SDL_GetTicks();
@@ -204,8 +242,8 @@ void refresh()
 		if (accumulator > 0.2f) {
 			accumulator = 0.2f;
 		}
-		// SDL_PumpEvents(); //not needed, SDL_PollEvent already pumps events
-			
+		// SDL_PumpEvents(); //not needed, SDL_PollEvent already pumps events						
+
 		// SDL Event loop
 		while (SDL_PollEvent(&evt)) {
 			switch (evt.type) {
@@ -216,29 +254,21 @@ void refresh()
 
 			case SDL_MOUSEBUTTONDOWN:
 				// Left Mouse Button
-				if (evt.button.button == SDL_BUTTON_LEFT) {					
-					// set an Entity to BULLET type
-					edict[last_entity].BindEntity(&edict[last_entity], BULLET);
-
-					// get vector from PLAYER to mouse position
-					mousePlayerVector = { 
-						evt.button.x - edict[0].position.x,
-						evt.button.y - edict[0].position.y 
-					};
-					// normalize PLAYER-to-mouse vector
-					mousePlayerVector = Vec2Normalize(mousePlayerVector);
-
-					// initialize bullet starting position
-					edict[last_entity].Update(	edict[0].position.x + (edict[0].width / 2), 
-												edict[0].position.y + (edict[0].height / 2), 
-												mousePlayerVector.x, 
-												mousePlayerVector.y, 
-												10, 10);
+				if (evt.button.button == SDL_BUTTON_LEFT) {
+					shooting = true;
 				}
+				
 				// Right Mouse Button
-				else if (evt.button.button == SDL_BUTTON_RIGHT) {
-					//nothing here yet!
+				else if (evt.button.button == SDL_BUTTON_RIGHT) {					
+					NewGen();
 				}
+				break;
+
+			case SDL_MOUSEBUTTONUP:
+				shooting = false;
+				break;
+
+			case SDL_MOUSEMOTION:
 				break;
 
 			case SDL_KEYUP:
@@ -247,7 +277,6 @@ void refresh()
 					done = true;
 				}
 				break;
-
 			}
 		}
 
@@ -267,29 +296,49 @@ void refresh()
 			SDL_RenderDrawLine(gRenderer, gMouseX - 5, gMouseY, gMouseX + 5, gMouseY);
 			SDL_RenderDrawLine(gRenderer, gMouseX, gMouseY - 5, gMouseX, gMouseY + 5);
 
-			// aiming laser
-			SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
-			SDL_RenderDrawLine(gRenderer, edict[0].position.x + (edict[0].width / 2), edict[0].position.y + (edict[0].height / 2), gMouseX, gMouseY);
+			// make bullets
+			if (shooting) {
+				// set an Entity to BULLET type
+				if (last_entity != -1) 
+					edict[last_entity].BindEntity(&edict[last_entity], ENT_BULLET, 2000);
+
+				// get vector from PLAYER to mouse position
+				mousePlayerVector = {
+					gMouseX - edict[0].position.x,
+					gMouseY - edict[0].position.y
+				};
+
+				// normalize PLAYER-to-mouse vector
+				mousePlayerVector = Unit(mousePlayerVector);
+
+				// initialize bullet starting position
+				edict[last_entity].Update(edict[0].position.x + (edict[0].width / 2),
+					edict[0].position.y + (edict[0].height / 2),
+					mousePlayerVector.x,
+					mousePlayerVector.y,
+					10, 10);
+			}
 
 			// entity updates
 			HandlePlayerInput(dt);
 			
 			// loop from the first Entity slot, til the last bound Entity
-			for (int idx = 1; idx <= last_entity; idx++) {
+			for (int idx = 0; idx <= last_entity; idx++) {
 				switch (edict[idx].GetType()) {
 
-				case PLAYER:
+				case ENT_PLAYER:
 					// PLAYER is always Entity 0
-					// edict[0].Update(edict[0].position.x, edict[0].position.y, edict[0].velocity.x, edict[0].velocity.y, edict[0].width, edict[0].height);
-					//edict[0].player_rect = { (int)edict[0].position.x, (int)edict[0].position.y, edict[0].width, edict[0].height };
+					edict[0].Update(edict[0].position.x, edict[0].position.y, edict[0].velocity.x, edict[0].velocity.y, edict[0].width, edict[0].height);
+					edict[0].player_rect = { (int)edict[0].position.x, (int)edict[0].position.y, edict[0].width, edict[0].height };
 					SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
 					SDL_RenderFillRect(gRenderer, &edict[0].player_rect);
 					break;
 
-				case BULLET:
-					edict[idx].position.x += edict[idx].velocity.x * 2; // *gFrameTime
-					edict[idx].position.y += edict[idx].velocity.y * 2; // *gFrameTime
-					
+				case ENT_BULLET:
+					edict[idx].position.x += edict[idx].velocity.x;// *2 * dt;
+					edict[idx].position.y += edict[idx].velocity.y;// *2 * dt;
+					edict[idx].Update(edict[idx].position.x, edict[idx].position.y, edict[idx].velocity.x, edict[idx].velocity.y, edict[idx].width, edict[idx].height);
+
 					edict[idx].player_rect = {
 						(int)edict[idx].position.x, 
 						(int)edict[idx].position.y, 
@@ -298,22 +347,42 @@ void refresh()
 					};
 					
 					// todo: move rendering related calls into entity member function
-					SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xAA, 0x00, 0xFF);
+					SDL_SetRenderDrawColor(gRenderer, 0xBB, 0xAA, 0x00, 0xFF);
 					SDL_RenderFillRect(gRenderer, &edict[idx].player_rect);
 					break;
 				}
 			}
 
-			// if Entity is bound, increment the array count
-			if (last_entity == MAX_ENTITIES) {
+			// aiming laser
+			SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+			SDL_RenderDrawLine(gRenderer, edict[0].position.x + (edict[0].width / 2), edict[0].position.y + (edict[0].height / 2), gMouseX, gMouseY);
+
+			// entity slot check loop
+			if (last_entity == -1) {
 				last_entity = 1;
 			}
 			else {
-				while (edict[last_entity].is_bound == true) {
-					last_entity++;
+				start = last_entity;
+			}
+			while (1)
+			{
+				if (last_entity == MAX_ENTITIES) // want this inside incrementing loop
+					last_entity = 1;
+
+				if (edict[last_entity].GetType() == ENT_NONE)
+					break;  // break from loop, we found a free slot
+
+				// slot was used, go to next one
+				last_entity++;
+
+				// have we gone full circle from where last_entity started ?
+				if (last_entity == start)
+				{
+					last_entity = -1;       // signifies no free slots
+					break;
 				}
-			}			
-			
+			}
+
 			SDL_RenderPresent(gRenderer);			
 		}
 		

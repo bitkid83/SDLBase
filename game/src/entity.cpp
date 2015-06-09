@@ -21,29 +21,29 @@ EntityType Entity::GetType()
 	return this->eType;
 }
 
-void Entity::BindEntity(Entity *e, EntityType t)
+void Entity::BindEntity(Entity *e, EntityType t, int fade)
 {
-	if (!e->is_bound) {
+	if (e->GetType() == ENT_NONE) {
 		e->SetType(t);
-		e->is_bound = true;
-	}
+
+		this->fadeTime = fade;
+		this->spawnTime = SDL_GetTicks();
+	} 
 	else {
 		char *typestr = "";
 		switch (e->GetType())
 		{
-			case PLAYER:
+			case ENT_PLAYER:
 				typestr = "PLAYER";
 				break;
-			case BULLET:
+			case ENT_BULLET:
 				typestr = "BULLET";
 				break;
-			case ENEMY:
+			case ENT_ENEMY:
 				typestr = "ENEMY";
 				break;
-			case NONE:
-				typestr = "NONE";
-				break;
 		}
+
 		printf("Error: entity already bound to type: %s\n", typestr);
 		return;
 	}
@@ -51,24 +51,22 @@ void Entity::BindEntity(Entity *e, EntityType t)
 
 void Entity::UnbindEntity(Entity *e)
 {
-	if (e != NULL) {
-		if (e->is_bound == true) {
-			e->SetType(NONE);
-			e->is_bound = false;
-		}
-		else {
-			printf("Error: entity not actually bound!\n");
-			return;
-		}
+	if (e->GetType() == ENT_NONE) {
+		printf("Entity already null!\n");
 	}
 	else {
-		printf("Error: entity is null!\n");
-		return;
+		e->SetType(ENT_NONE);
 	}
 };
 
 void Entity::Update(double px, double py, double vx, double vy, int w, int h)
 {
+	if (this->fadeTime != 0) {
+		if (SDL_GetTicks() - this->spawnTime >= this->fadeTime) {
+			this->UnbindEntity(this);
+		}
+	}
+	
 	if (w != 0 && h != 0) {
 		this->width = w;
 		this->height = h;
@@ -79,13 +77,12 @@ void Entity::Update(double px, double py, double vx, double vy, int w, int h)
 
 	this->velocity.x = vx;
 	this->velocity.y = vy;
-	
+
 	this->player_rect.w = this->width;
 	this->player_rect.h = this->height;
 
 	this->player_rect.x = (int)this->position.x;
 	this->player_rect.y = (int)this->position.y;
-
 };
 
 void Entity::Render()
