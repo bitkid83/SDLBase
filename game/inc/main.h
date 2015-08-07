@@ -14,6 +14,10 @@
 
 #define MAX_ENTITIES 65536
 
+#define CAM_SPEED 30
+
+#define BULLET_RATE 50
+
 unsigned char *worldmap;
 
 SDL_Window *gWindow;

@@ -1,15 +1,9 @@
 #include <stdio.h>
 #include "entity.h"
 
-Entity::Entity()
-{
-	
-};
+Entity::Entity() { };
 
-Entity::~Entity()
-{
-
-};
+Entity::~Entity() { };
 
 void Entity::SetType(EntityType t)
 {
