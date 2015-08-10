@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include "SDL.h"
+#include "contentpipeline.h"
 #include "timer.h"
 #include "vectormath.h"
 
@@ -30,8 +31,10 @@ public:
 	int fadeTime;
 
 	SDL_Rect player_rect;
+	
 		
 	EntityType GetType();
+	void SetRenderer(SDL_Renderer *ren);
 	void SetType(EntityType t);
 
 	void BindEntity(Entity *e, EntityType t, int fade);
@@ -40,8 +43,13 @@ public:
 	void Update(double px, double py, double vx, double vy, int w, int h);
 	void Render();
 
+protected:
+	SDL_Renderer *eRenderer;
+	SpriteSheet *entSprite;
+
 private:
-	EntityType eType;	
+	EntityType eType;
+
 };
 
 #endif

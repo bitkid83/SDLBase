@@ -5,6 +5,16 @@ Entity::Entity() { };
 
 Entity::~Entity() { };
 
+void Entity::SetRenderer(SDL_Renderer *ren)
+{
+	if (ren) {
+		this->eRenderer = ren;
+	}
+	else {
+		printf("Error: SDL_Renderer is null!\n");
+	}
+};
+
 void Entity::SetType(EntityType t)
 {
 	this->eType = t;
@@ -20,6 +30,12 @@ void Entity::BindEntity(Entity *e, EntityType t, int fade)
 	if (e->GetType() == ENT_NONE) {
 		e->SetType(t);
 
+		if (t == ENT_PLAYER) {
+			entSprite = new SpriteSheet(this->eRenderer);
+			entSprite->LoadTexture("ss_player.png");
+			entSprite->SetClips(5);
+		}
+
 		this->fadeTime = fade;
 		this->spawnTime = SDL_GetTicks();
 	} 
@@ -31,6 +47,7 @@ void Entity::BindEntity(Entity *e, EntityType t, int fade)
 				typestr = "PLAYER";
 				break;
 			case ENT_BULLET:
+				this->entSprite = nullptr;
 				typestr = "BULLET";
 				break;
 			case ENT_ENEMY:
@@ -50,6 +67,7 @@ void Entity::UnbindEntity(Entity *e)
 	}
 	else {
 		e->SetType(ENT_NONE);
+		//e->entSprite->FreeTexture();
 	}
 };
 
@@ -81,5 +99,5 @@ void Entity::Update(double px, double py, double vx, double vy, int w, int h)
 
 void Entity::Render()
 {
-
+	this->entSprite->RenderTexture(this->position.x, this->position.y);
 };

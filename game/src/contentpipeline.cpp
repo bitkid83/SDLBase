@@ -2,13 +2,17 @@
 
 #include <iostream>
 
+Texture::Texture()
+{
+	printf("Instantiate Texture class with: Texture(SDL_Renderer *ren)\n");
+};
 
 Texture::Texture(SDL_Renderer *ren)
 { 
 	mRenderer = ren;
-}
+};
 
-Texture::~Texture() { }
+Texture::~Texture() { };
 
 
 bool Texture::LoadTexture(const char *filename)
@@ -23,6 +27,7 @@ bool Texture::LoadTexture(const char *filename)
 		return false;
 	}
 	else {
+		std::cout << "LoadTexture success!: " << filename << std::endl;
 		tmptex = SDL_CreateTextureFromSurface(mRenderer, loadedImage);
 		if (tmptex == nullptr)	{
 			std::cout << "Unable to create texture from loaded image: " << filename << ".\nSDL_Error: " << SDL_GetError() << std::endl;
@@ -37,7 +42,7 @@ bool Texture::LoadTexture(const char *filename)
 	}
 	mTexture = tmptex;
 	return mTexture != nullptr;
-}
+};
 
 void Texture::FreeTexture()
 {
@@ -47,23 +52,28 @@ void Texture::FreeTexture()
 		mWidth = 0;
 		mHeight = 0;
 	}
-}
+};
 
 void Texture::RenderTexture(int x, int y)
 {
 	SDL_Rect renderQuad = { x, y, mWidth, mHeight };
 	SDL_RenderCopy(mRenderer, mTexture, nullptr, &renderQuad);
-}
+};
 
 int Texture::getWidth()
 {
 	return mWidth;
-}
+};
 
 int Texture::getHeight()
 {
 	return mHeight;
-}
+};
+
+SpriteSheet::SpriteSheet(SDL_Renderer *ren)
+{
+	mRenderer = ren;
+};
 
 void SpriteSheet::RenderTexture(int x, int y)
 {
@@ -83,7 +93,7 @@ void SpriteSheet::RenderTexture(int x, int y)
 	if (mCurrentFrame == mFrameCount) {
 		mCurrentFrame = 0;
 	}
-}
+};
 
 SDL_Rect *SpriteSheet::SetClips(const int framecount)
 {
@@ -134,4 +144,4 @@ SDL_Rect *SpriteSheet::SetClips(const int framecount)
 	mClips[4].h = 30;*/
 
 	return mClips;
-}
+};

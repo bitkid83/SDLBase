@@ -16,7 +16,7 @@ Texture *texGrass;
 Texture *texWater;
 
 // Entity dictionary
-Entity *edict;
+Entity *eDict;
 int last_entity;
 
 // Frame timing stuff
@@ -113,32 +113,32 @@ void HandlePlayerInput(float frametime)
 {
 	//SDL_PumpEvents();
 	if (gKeyState[SDL_SCANCODE_W]) {
-		//edict[0].velocity.y += -1;
+		//eDict[0].velocity.y += -1;
 		gCamera.y += -CAM_SPEED * frametime;
 	}
 	if (gKeyState[SDL_SCANCODE_S]) {
-		//edict[0].velocity.y += 1;
+		//eDict[0].velocity.y += 1;
 		gCamera.y += CAM_SPEED * frametime;
 	}
 	if (gKeyState[SDL_SCANCODE_A]) {
-		//edict[0].velocity.x += -1;
+		//eDict[0].velocity.x += -1;
 		gCamera.x += -CAM_SPEED * frametime;
 	}
 	if (gKeyState[SDL_SCANCODE_D]) {
-		//edict[0].velocity.x += 1;
+		//eDict[0].velocity.x += 1;
 		gCamera.x += CAM_SPEED * frametime;
 	}
 
 	// add velocities to player position
-	//edict[0].position.x += edict[0].velocity.x * frametime;
-	//edict[0].position.y += edict[0].velocity.y * frametime;
-	//edict[0].velocity.x *= 0.005;
-	//edict[0].velocity.y *= 0.005;
+	//eDict[0].position.x += eDict[0].velocity.x * frametime;
+	//eDict[0].position.y += eDict[0].velocity.y * frametime;
+	//eDict[0].velocity.x *= 0.005;
+	//eDict[0].velocity.y *= 0.005;
 
-	//if (fabs(edict[0].velocity.x) < 0.00001) edict[0].velocity.x = 0;
-	//if (fabs(edict[0].velocity.y) < 0.00001) edict[0].velocity.y = 0;
+	//if (fabs(eDict[0].velocity.x) < 0.00001) eDict[0].velocity.x = 0;
+	//if (fabs(eDict[0].velocity.y) < 0.00001) eDict[0].velocity.y = 0;
 
-	//printf("(X, Y): %f, %f\n", edict[0].position.x, edict[0].position.y);
+	//printf("(X, Y): %f, %f\n", eDict[0].position.x, eDict[0].position.y);
 }
 
 bool init()
@@ -149,7 +149,7 @@ bool init()
 	gRenderer = NULL;
 
 	// initialize SDL2
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
 		printf("Error initializing SDL: %s\n", SDL_GetError());
 		success = false;
 	}
@@ -188,20 +188,23 @@ bool init()
 	gCamera.x = 0;
 	gCamera.y = 0;
 
-	// allocate memory for all possible entities
-	edict = (Entity *)malloc(sizeof(Entity) * MAX_ENTITIES);
-	memset(edict, 0, sizeof(Entity) * MAX_ENTITIES);
+	// allocate memory for all possible Entities
+	eDict = (Entity *)malloc(sizeof(Entity) * MAX_ENTITIES);
+	// zero out all Entity list entries
+	memset(eDict, 0, sizeof(Entity) * MAX_ENTITIES);
 
+	// set all Entities in the list to type ENT_NONE
 	for (int lst = 0; lst < MAX_ENTITIES; lst++) {
-		edict[lst].SetType(ENT_NONE);
+		eDict[lst].SetRenderer(gRenderer);
+		eDict[lst].SetType(ENT_NONE);
 	}
 
 	last_entity = 0;
 
 	// initialize player	
-	edict[0].BindEntity(&edict[0], ENT_PLAYER, 0);
-	edict[0].Update(	gCamera.x + ((SCREEN_WIDTH / 2) - edict[0].width), 
-						gCamera.y + ((SCREEN_HEIGHT / 2) - edict[0].height), 
+	eDict[0].BindEntity(&eDict[0], ENT_PLAYER, 0);
+	eDict[0].Update(	gCamera.x + ((SCREEN_WIDTH / 2) - eDict[0].width), 
+						gCamera.y + ((SCREEN_HEIGHT / 2) - eDict[0].height), 
 						0, 0, 
 						32, 32	);
 
@@ -211,10 +214,20 @@ bool init()
 	// set up SDL Game Controllers - not working yet
 	gNumGamepads = 0;
 	gNumGamepads = SDL_NumJoysticks();
+
 	if (gNumGamepads > 0) {
 		printf("Gamepads connected: %d\n", gNumGamepads);
-	}
-	else {
+		for (int joy_index = 0; joy_index < gNumGamepads; joy_index++) {
+			printf("%s\n", SDL_JoystickNameForIndex(joy_index));
+		}
+
+		gJoystick = SDL_JoystickOpen(0);
+		if (gJoystick) {
+			printf("Buttons: %d\n", SDL_JoystickNumButtons(gJoystick));
+		} else {
+			printf("Failed to open gamepad 0\n");
+		}
+	} else {
 		printf("No gamepads found! %s\n", SDL_GetError());
 	}
 	
@@ -305,21 +318,21 @@ void refresh()
 		if (shooting && (bullet_timer.GetTicks() % BULLET_RATE == 0)) {
 			// set an Entity to BULLET type
 			if (last_entity != -1) {
-				edict[last_entity].BindEntity(&edict[last_entity], ENT_BULLET, 1000);
+				eDict[last_entity].BindEntity(&eDict[last_entity], ENT_BULLET, 1000);
 			}
 
 			// get vector from PLAYER to mouse position
 			mousePlayerVector = {
-				gMouseX - edict[0].position.x,
-				gMouseY - edict[0].position.y
+				gMouseX - eDict[0].position.x,
+				gMouseY - eDict[0].position.y
 			};
 
 			// normalize PLAYER-to-mouse vector
 			mousePlayerVector = Unit(mousePlayerVector);
 
 			// initialize bullet starting position
-			edict[last_entity].Update(edict[0].position.x + (edict[0].width / 2),
-				edict[0].position.y + (edict[0].height / 2),
+			eDict[last_entity].Update(eDict[0].position.x + (eDict[0].width / 2),
+				eDict[0].position.y + (eDict[0].height / 2),
 				mousePlayerVector.x,
 				mousePlayerVector.y,
 				10, 10);
@@ -330,31 +343,32 @@ void refresh()
 			
 		// loop from the first Entity slot, til the last bound Entity
 		for (int idx = 0; idx <= last_entity; idx++) {
-			switch (edict[idx].GetType()) {
+			switch (eDict[idx].GetType()) {
 
 			case ENT_PLAYER:
 				// PLAYER is always Entity 0
-				edict[0].Update(edict[0].position.x, edict[0].position.y, edict[0].velocity.x, edict[0].velocity.y, edict[0].width, edict[0].height);
-				edict[0].player_rect = { (int)edict[0].position.x, (int)edict[0].position.y, edict[0].width, edict[0].height };
-				SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-				SDL_RenderFillRect(gRenderer, &edict[0].player_rect);
+				eDict[0].Update(eDict[0].position.x, eDict[0].position.y, eDict[0].velocity.x, eDict[0].velocity.y, eDict[0].width, eDict[0].height);
+				eDict[0].Render();
+				//eDict[0].player_rect = { (int)eDict[0].position.x, (int)eDict[0].position.y, eDict[0].width, eDict[0].height };
+				//SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+				//SDL_RenderFillRect(gRenderer, &eDict[0].player_rect);
 				break;
 
 			case ENT_BULLET:
-				edict[idx].position.x += edict[idx].velocity.x; //*accumulator;
-				edict[idx].position.y += edict[idx].velocity.y; //*accumulator;
-				edict[idx].Update(edict[idx].position.x, edict[idx].position.y, edict[idx].velocity.x, edict[idx].velocity.y, edict[idx].width, edict[idx].height);
+				eDict[idx].position.x += eDict[idx].velocity.x; //*accumulator;
+				eDict[idx].position.y += eDict[idx].velocity.y; //*accumulator;
+				eDict[idx].Update(eDict[idx].position.x, eDict[idx].position.y, eDict[idx].velocity.x, eDict[idx].velocity.y, eDict[idx].width, eDict[idx].height);
 
-				edict[idx].player_rect = {
-					(int)edict[idx].position.x, 
-					(int)edict[idx].position.y, 
-					edict[idx].width, 
-					edict[idx].height
+				eDict[idx].player_rect = {
+					(int)eDict[idx].position.x, 
+					(int)eDict[idx].position.y, 
+					eDict[idx].width, 
+					eDict[idx].height
 				};
 					
 				// todo: move rendering related calls into entity member function
 				SDL_SetRenderDrawColor(gRenderer, 0xBB, 0xAA, 0x00, 0xFF);
-				SDL_RenderFillRect(gRenderer, &edict[idx].player_rect);
+				SDL_RenderFillRect(gRenderer, &eDict[idx].player_rect);
 				break;
 			}
 		}
@@ -372,7 +386,7 @@ void refresh()
 				last_entity = 1;
 			}
 
-			if (edict[last_entity].GetType() == ENT_NONE) {
+			if (eDict[last_entity].GetType() == ENT_NONE) {
 				break;  // break from loop, we found a free slot
 			}
 
@@ -388,7 +402,7 @@ void refresh()
 
 		// aiming laser
 		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
-		SDL_RenderDrawLine(gRenderer, edict[0].position.x + (edict[0].width / 2), edict[0].position.y + (edict[0].height / 2), gMouseX, gMouseY);
+		SDL_RenderDrawLine(gRenderer, eDict[0].position.x + (eDict[0].width / 2), eDict[0].position.y + (eDict[0].height / 2), gMouseX, gMouseY);
 		
 		// frame timing & rate limiting
 		frameEnd = SDL_GetTicks();
@@ -405,13 +419,18 @@ void refresh()
 
 void shutdown()
 {
+	free((unsigned char *)worldmap);
+	worldmap = NULL;
+
+	free((void *)eDict);
+	eDict = NULL;
+
+	SDL_JoystickClose(gJoystick);
 	SDL_DestroyRenderer(gRenderer);
 	SDL_DestroyWindow(gWindow);
+	gJoystick = NULL;
 	gRenderer = NULL;
-	gWindow = NULL;
-	
-	free((void *)edict);
-	edict = NULL;
+	gWindow = NULL;	
 
 	SDL_Quit();
 }

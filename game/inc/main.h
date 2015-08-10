@@ -23,6 +23,8 @@ unsigned char *worldmap;
 SDL_Window *gWindow;
 SDL_Renderer *gRenderer;
 
+SDL_Joystick *gJoystick;
+
 //Game controller stuff
 int gNumGamepads;
 

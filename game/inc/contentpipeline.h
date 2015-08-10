@@ -7,6 +7,7 @@
 class Texture
 {
 public:
+	Texture();
 	Texture(SDL_Renderer *ren);
 	~Texture();
 
@@ -28,6 +29,7 @@ protected:
 class SpriteSheet : public Texture
 {
 public:
+	SpriteSheet(SDL_Renderer *ren);
 	SDL_Rect *SetClips(const int framecount);
 	SDL_Rect *mClips;
 	void RenderTexture(int x, int y);
