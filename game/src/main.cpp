@@ -20,12 +20,11 @@ Entity *eDict;
 int last_entity;
 
 // Frame timing stuff
-const float maxfps = 100;
+const float maxfps = 60;
 const float dt = 1 / maxfps;
 float accumulator = 0;
 
 vec2 gCamera;
-
 
 void GenTiles()
 {
@@ -83,8 +82,8 @@ Texture *TileIndex(int x, int y)
 	//temp.x = x * TILE_WIDTH - gCamera.x;
 	//temp.y = y * TILE_HEIGHT - gCamera.y;
 
-	t->posx = x * TILE_WIDTH - gCamera.x;
-	t->posy = y * TILE_HEIGHT - gCamera.y;
+	t->posx = (x * TILE_WIDTH - gCamera.x);
+	t->posy = (y * TILE_HEIGHT - gCamera.y);
 
 	return t;
 }
@@ -114,21 +113,26 @@ void HandlePlayerInput(float frametime)
 	//SDL_PumpEvents();
 	if (gKeyState[SDL_SCANCODE_W]) {
 		//eDict[0].velocity.y += -1;
+		eDict[0].frame_advance = true;
 		gCamera.y += -CAM_SPEED * frametime;
 	}
 	if (gKeyState[SDL_SCANCODE_S]) {
 		//eDict[0].velocity.y += 1;
+		eDict[0].frame_advance = true;
 		gCamera.y += CAM_SPEED * frametime;
 	}
 	if (gKeyState[SDL_SCANCODE_A]) {
-		//eDict[0].velocity.x += -1;
+		//eDict[0].velocity.x += -1;		
+		eDict[0].frame_advance = true;
+		eDict[0].flip_direction = SDL_FLIP_HORIZONTAL;
 		gCamera.x += -CAM_SPEED * frametime;
 	}
 	if (gKeyState[SDL_SCANCODE_D]) {
-		//eDict[0].velocity.x += 1;
-		gCamera.x += CAM_SPEED * frametime;
+		//eDict[0].velocity.x += 1;	
+		eDict[0].frame_advance = true;
+		eDict[0].flip_direction = SDL_FLIP_NONE;
+		gCamera.x += CAM_SPEED * frametime;		
 	}
-
 	// add velocities to player position
 	//eDict[0].position.x += eDict[0].velocity.x * frametime;
 	//eDict[0].position.y += eDict[0].velocity.y * frametime;
@@ -160,7 +164,7 @@ bool init()
 			SDL_WINDOWPOS_CENTERED,
 			SCREEN_WIDTH,
 			SCREEN_HEIGHT,
-			SDL_WINDOW_SHOWN);
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 		if (gWindow == NULL) {
 			printf("Error creating SDL Window: %s\n", SDL_GetError());
@@ -206,7 +210,7 @@ bool init()
 	eDict[0].Update(	gCamera.x + ((SCREEN_WIDTH / 2) - eDict[0].width), 
 						gCamera.y + ((SCREEN_HEIGHT / 2) - eDict[0].height), 
 						0, 0, 
-						32, 32	);
+						64, 64, 0.f, SDL_FLIP_NONE, false);
 
 
 	last_entity++;
@@ -232,7 +236,7 @@ bool init()
 	}
 	
 	// retrieve keyboard state snapshot
-	gKeyState = (unsigned char*)SDL_GetKeyboardState(NULL);
+	gKeyState = (unsigned char *)SDL_GetKeyboardState(NULL);
 
 	// disable mouse cursor
 	SDL_ShowCursor(SDL_DISABLE);
@@ -260,8 +264,7 @@ void refresh()
 	Timer bullet_timer;
 	
 	// Game loop
-	while (!done) {
-		frameStart = SDL_GetTicks();	
+	while (!done) {	
 
 		// SDL Event loop
 		while (SDL_PollEvent(&evt)) {
@@ -280,7 +283,7 @@ void refresh()
 				
 				// Right Mouse Button
 				else if (evt.button.button == SDL_BUTTON_RIGHT) {					
-					NewGen();
+					// NewGen();
 				}
 				break;
 
@@ -300,6 +303,8 @@ void refresh()
 				break;
 			}
 		}
+		
+		frameStart = SDL_GetTicks();
 
 		// clear screen to black
 		SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
@@ -309,6 +314,10 @@ void refresh()
 		UpdateTiles();
 
 		// mouse crosshair
+		// aiming laser
+		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+		SDL_RenderDrawLine(gRenderer, eDict[0].position.x + (eDict[0].width / 2), eDict[0].position.y + (eDict[0].height / 2), gMouseX, gMouseY);
+
 		SDL_GetMouseState(&gMouseX, &gMouseY);
 		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xAA, 0xCA, 0xFF);
 		SDL_RenderDrawLine(gRenderer, gMouseX - 5, gMouseY, gMouseX + 5, gMouseY);
@@ -331,15 +340,16 @@ void refresh()
 			mousePlayerVector = Unit(mousePlayerVector);
 
 			// initialize bullet starting position
-			eDict[last_entity].Update(eDict[0].position.x + (eDict[0].width / 2),
-				eDict[0].position.y + (eDict[0].height / 2),
-				mousePlayerVector.x,
-				mousePlayerVector.y,
-				10, 10);
+			eDict[last_entity].Update(	eDict[0].position.x + (eDict[0].width / 2),
+										eDict[0].position.y + (eDict[0].height / 2),
+										mousePlayerVector.x, mousePlayerVector.y,
+										10, 10, 
+										0.f, 
+										SDL_FLIP_NONE, false);
 		}
 
 		// entity updates
-		HandlePlayerInput(accumulator);
+		HandlePlayerInput(accumulator);		
 			
 		// loop from the first Entity slot, til the last bound Entity
 		for (int idx = 0; idx <= last_entity; idx++) {
@@ -347,19 +357,30 @@ void refresh()
 
 			case ENT_PLAYER:
 				// PLAYER is always Entity 0
-				eDict[0].Update(eDict[0].position.x, eDict[0].position.y, eDict[0].velocity.x, eDict[0].velocity.y, eDict[0].width, eDict[0].height);
+				eDict[0].Update(	eDict[0].position.x, eDict[0].position.y, 
+									eDict[0].velocity.x, eDict[0].velocity.y, 
+									eDict[0].width, eDict[0].height, 
+									eDict[0].rotation_angle, 
+									eDict[0].flip_direction, eDict[0].frame_advance);
+
 				eDict[0].Render();
-				//eDict[0].player_rect = { (int)eDict[0].position.x, (int)eDict[0].position.y, eDict[0].width, eDict[0].height };
+				eDict[0].frame_advance = false;
+				//eDict[0].entity_rect = { (int)eDict[0].position.x, (int)eDict[0].position.y, eDict[0].width, eDict[0].height };
 				//SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-				//SDL_RenderFillRect(gRenderer, &eDict[0].player_rect);
+				//SDL_RenderFillRect(gRenderer, &eDict[0].entity_rect);
 				break;
 
 			case ENT_BULLET:
-				eDict[idx].position.x += eDict[idx].velocity.x; //*accumulator;
-				eDict[idx].position.y += eDict[idx].velocity.y; //*accumulator;
-				eDict[idx].Update(eDict[idx].position.x, eDict[idx].position.y, eDict[idx].velocity.x, eDict[idx].velocity.y, eDict[idx].width, eDict[idx].height);
+				//printf("%f, %f\n", eDict[idx].velocity.x, eDict[idx].velocity.y);
+				eDict[idx].position.x += eDict[idx].velocity.x * accumulator * 30;
+				eDict[idx].position.y += eDict[idx].velocity.y * accumulator * 30;
+				eDict[idx].Update(	eDict[idx].position.x, eDict[idx].position.y, 
+									eDict[idx].velocity.x, eDict[idx].velocity.y, 
+									eDict[idx].width, eDict[idx].height, 
+									eDict[idx].rotation_angle, 
+									eDict[idx].flip_direction, false);
 
-				eDict[idx].player_rect = {
+				eDict[idx].entity_rect = {
 					(int)eDict[idx].position.x, 
 					(int)eDict[idx].position.y, 
 					eDict[idx].width, 
@@ -368,7 +389,7 @@ void refresh()
 					
 				// todo: move rendering related calls into entity member function
 				SDL_SetRenderDrawColor(gRenderer, 0xBB, 0xAA, 0x00, 0xFF);
-				SDL_RenderFillRect(gRenderer, &eDict[idx].player_rect);
+				SDL_RenderFillRect(gRenderer, &eDict[idx].entity_rect);
 				break;
 			}
 		}
@@ -400,17 +421,17 @@ void refresh()
 			}
 		}
 
-		// aiming laser
-		SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
-		SDL_RenderDrawLine(gRenderer, eDict[0].position.x + (eDict[0].width / 2), eDict[0].position.y + (eDict[0].height / 2), gMouseX, gMouseY);
+		
 		
 		// frame timing & rate limiting
 		frameEnd = SDL_GetTicks();
-		accumulator = (frameEnd - frameStart) / 1000.f;
-
+		// timing between start of frame and end of frame in milliseconds
+		accumulator = (float)(frameEnd - frameStart) / 1000.f;	
+		// increment the accumulator if frames are rendering faster than 1 / MAX_FPS
 		while (accumulator < dt) {
-			accumulator += dt;
+			accumulator += 0.0001;
 		}		
+		//printf("frame time: %fms\n", accumulator);	
 
 		// blit to screen
 		SDL_RenderPresent(gRenderer);
@@ -448,7 +469,7 @@ int main(int argc, char *argv[])
 		texWater = new Texture(gRenderer);
 		texGrass = new Texture(gRenderer);
 		texDirt->LoadTexture("dirt.png");
-		texWater->LoadTexture("water.png");
+		texWater->LoadTexture("stone.png");
 		texGrass->LoadTexture("grass.png");
 
 		refresh();

@@ -29,13 +29,16 @@ protected:
 class SpriteSheet : public Texture
 {
 public:
-	SpriteSheet(SDL_Renderer *ren);
+	SpriteSheet(SDL_Renderer *ren, int fps_scale);
 	SDL_Rect *SetClips(const int framecount);
 	SDL_Rect *mClips;
-	void RenderTexture(int x, int y);
+	void RenderTexture(int x, int y, double angle, SDL_RendererFlip flip, bool frame_step);
+	//void RenderTextureEx(int x, int y, double angle, int flip);
 
 private:
 	int mCurrentFrame = 0;
+	int mRenderFrame;
+	int mFrameRateScale;
 	int mFrameCount;
 };
 

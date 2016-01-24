@@ -31,7 +31,7 @@ void Entity::BindEntity(Entity *e, EntityType t, int fade)
 		e->SetType(t);
 
 		if (t == ENT_PLAYER) {
-			entSprite = new SpriteSheet(this->eRenderer);
+			entSprite = new SpriteSheet(this->eRenderer, 100);
 			entSprite->LoadTexture("ss_player.png");
 			entSprite->SetClips(5);
 		}
@@ -71,7 +71,7 @@ void Entity::UnbindEntity(Entity *e)
 	}
 };
 
-void Entity::Update(double px, double py, double vx, double vy, int w, int h)
+void Entity::Update(double px, double py, double vx, double vy, int w, int h, double rotation, SDL_RendererFlip flip, bool frame_step)
 {
 	if (this->fadeTime != 0) {
 		if (SDL_GetTicks() - this->spawnTime >= this->fadeTime) {
@@ -90,14 +90,19 @@ void Entity::Update(double px, double py, double vx, double vy, int w, int h)
 	this->velocity.x = vx;
 	this->velocity.y = vy;
 
-	this->player_rect.w = this->width;
-	this->player_rect.h = this->height;
+	this->rotation_angle = rotation;
+	this->flip_direction = flip;
 
-	this->player_rect.x = (int)this->position.x;
-	this->player_rect.y = (int)this->position.y;
+	this->frame_advance = frame_step;
+
+	this->entity_rect.w = this->width;
+	this->entity_rect.h = this->height;
+
+	this->entity_rect.x = (int)this->position.x;
+	this->entity_rect.y = (int)this->position.y;
 };
 
 void Entity::Render()
 {
-	this->entSprite->RenderTexture(this->position.x, this->position.y);
+	this->entSprite->RenderTexture(this->position.x, this->position.y, this->rotation_angle, this->flip_direction, this->frame_advance);
 };

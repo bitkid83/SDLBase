@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+
 Texture::Texture()
 {
 	printf("Instantiate Texture class with: Texture(SDL_Renderer *ren)\n");
@@ -70,45 +71,51 @@ int Texture::getHeight()
 	return mHeight;
 };
 
-SpriteSheet::SpriteSheet(SDL_Renderer *ren)
+SpriteSheet::SpriteSheet(SDL_Renderer *ren, int fps_scale)
 {
 	mRenderer = ren;
+	mFrameRateScale = fps_scale;
 };
 
-void SpriteSheet::RenderTexture(int x, int y)
+void SpriteSheet::RenderTexture(int x, int y, double angle, SDL_RendererFlip flip, bool frame_step)
 {
 	SDL_Rect renderQuad = { x, y, mWidth, mHeight };
-
+	
 	if (mClips != nullptr) {
 		renderQuad.w = mClips->w;
 		renderQuad.h = mClips->h;
-		SDL_RenderCopy(mRenderer, mTexture, &mClips[mCurrentFrame], &renderQuad);
+		//SDL_RenderCopy(mRenderer, mTexture, &mClips[mCurrentFrame], &renderQuad);
+		if (mCurrentFrame % mFrameRateScale == 0) { 
+			mRenderFrame = mCurrentFrame / mFrameRateScale; 
+		}
+		
+		SDL_RenderCopyEx(mRenderer, mTexture, &mClips[mRenderFrame], &renderQuad, angle, NULL, flip);
 	}
 	else {
 		std::cout << "mClips is NULL!\n";
 		return;
 	}
-
-	mCurrentFrame++;
-	if (mCurrentFrame == mFrameCount) {
+	
+	if (frame_step) { mCurrentFrame++; }
+	if (mCurrentFrame == mFrameCount * mFrameRateScale) {
 		mCurrentFrame = 0;
 	}
 };
 
 SDL_Rect *SpriteSheet::SetClips(const int framecount)
 {
-	//Store the number of animation frames for this object
+	// store the number of animation frames for this object
 	mFrameCount = framecount;
 
-	//mClips is an array of SDL_Rects, to which we store each frame from the loaded sprite sheet
+	// mClips is an array of SDL_Rects, to which we store each frame from the loaded sprite sheet
 	mClips = new SDL_Rect[framecount];
 
-	//The size of each individual frame from the sprite sheet
+	// individual frame size is calculated by "total texture width" / "frame count"
 	int clipWidth = mWidth / framecount;
 
 	int tmp = 0;
 
-	//Iterate through a horizontal sprite sheet and store each frame into the array of SDL_Rects
+	// Iterate through a horizontal sprite sheet and store each frame into the array of SDL_Rects
 	for (int i = 0; i < framecount; i++) {
 		mClips[i].x = tmp;
 		mClips[i].y = 0;

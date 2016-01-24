@@ -27,11 +27,16 @@ public:
 	vec2 position;
 	vec2 velocity;
 
+	double rotation_angle;
+
+	SDL_RendererFlip flip_direction;
+
+	bool frame_advance;
+
 	int spawnTime;
 	int fadeTime;
 
-	SDL_Rect player_rect;
-	
+	SDL_Rect entity_rect;	
 		
 	EntityType GetType();
 	void SetRenderer(SDL_Renderer *ren);
@@ -39,8 +44,8 @@ public:
 
 	void BindEntity(Entity *e, EntityType t, int fade);
 	void UnbindEntity(Entity *e);
-
-	void Update(double px, double py, double vx, double vy, int w, int h);
+		
+	void Update(double px, double py, double vx, double vy, int w, int h, double rotation, SDL_RendererFlip flip, bool frame_step); // re-factor to use vec2 instead of doubles
 	void Render();
 
 protected:
